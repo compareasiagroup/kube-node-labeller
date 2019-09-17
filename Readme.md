@@ -1,62 +1,67 @@
-kube-node-labeller
-==================
+# kube-node-lifecycle-labeller
 
-Very basic Kubernetes service, intended to be run as a DaemonSet, that copies the labels from an
-EC2 instance to the cooresponding labels of its Kubernetes node.
+Very basic Kubernetes DaemonSet which sets labels and taints based on EC2 LifeCycle of a node.
 
-Usage:
+This is most useful for AWS AutoScalingGroups with MixedInstancePolicies where labels and taints needs to be controlled on a node-by-node basis
 
-```
-> kubectl create -f kube-node-labeller.yaml
+## Kubernetes deployment
+
+See [Chart README](deploy/chart/README.md)
+
+```shell
+make manifests # uses local helm chart and helm template to render manifests
+kubectl apply -f deploy/manifests/
 ```
 
 Results:
 
-```
-> kubectl get nodes -o json | jq '.items[].metadata.labels'
+```shell
+> k get no -l kops.k8s.io/instancegroup=nodes-mix -L LifeCycle
+NAME                                             STATUS   ROLES   AGE   VERSION   LIFECYCLE
+ip-10-89-4-139.ap-southeast-1.compute.internal   Ready    node    23h   v1.15.3   Ec2Spot
+ip-10-89-5-106.ap-southeast-1.compute.internal   Ready    node    23h   v1.15.3   OnDemand
+
+> k get no -l kops.k8s.io/instancegroup=nodes-mix -o json | jq '.items[] | {"Name":.metadata.name,"Labels":.metadata.labels,"Taints":.spec.taints}'
 {
-  "Environment": "cluster-name.example.com",
-  "KubernetesCluster": "cluster-name",
-  "Name": "cluster-name-kube-aws-controller",
-  "aws-autoscaling-groupName": "cluster-name-AutoScaleController-19K49D9QJI1R3",
-  "aws-cloudformation-logical-id": "AutoScaleController",
-  "aws-cloudformation-stack-id": "arn-aws-cloudformation-us-west-2-051932472482-stack-cluster-name-08",
-  "aws-cloudformation-stack-name": "cluster-name",
-  "beta.kubernetes.io/arch": "amd64",
-  "beta.kubernetes.io/instance-type": "t2.small",
-  "beta.kubernetes.io/os": "linux",
-  "failure-domain.beta.kubernetes.io/region": "us-west-2",
-  "failure-domain.beta.kubernetes.io/zone": "us-west-2b",
-  "kubernetes.io/hostname": "ip-10-0-0-216.us-west-2.compute.internal"
+  "Name": "ip-*******.ap-southeast-1.compute.internal",
+  "Labels": {
+    "LifeCycle": "Ec2Spot",
+    "beta.kubernetes.io/arch": "amd64",
+    "beta.kubernetes.io/instance-type": "t3.xlarge",
+    "beta.kubernetes.io/os": "linux",
+    "failure-domain.beta.kubernetes.io/region": "ap-southeast-1",
+    "failure-domain.beta.kubernetes.io/zone": "ap-southeast-1a",
+    "kops.k8s.io/instancegroup": "nodes-mix",
+    "kubernetes.io/arch": "amd64",
+    "kubernetes.io/hostname": "ip-*******.ap-southeast-1.compute.internal",
+    "kubernetes.io/os": "linux",
+    "kubernetes.io/role": "node",
+    "node-role.kubernetes.io/node": ""
+  },
+  "Taints": [
+    {
+      "effect": "PreferNoSchedule",
+      "key": "spotInstance",
+      "value": "true"
+    }
+  ]
 }
 {
-  "Environment": "cluster-name.example.com",
-  "KubernetesCluster": "cluster-name",
-  "Name": "cluster-name-kube-aws-worker",
-  "aws-autoscaling-groupName": "cluster-name-AutoScaleWorker-SII0CUIA8CD6",
-  "aws-cloudformation-logical-id": "AutoScaleWorker",
-  "aws-cloudformation-stack-id": "arn-aws-cloudformation-us-west-2-051932472482-stack-cluster-name-08",
-  "aws-cloudformation-stack-name": "cluster-name",
-  "beta.kubernetes.io/arch": "amd64",
-  "beta.kubernetes.io/instance-type": "c4.2xlarge",
-  "beta.kubernetes.io/os": "linux",
-  "failure-domain.beta.kubernetes.io/region": "us-west-2",
-  "failure-domain.beta.kubernetes.io/zone": "us-west-2b",
-  "kubernetes.io/hostname": "ip-10-0-0-223.us-west-2.compute.internal"
-}
-{
-  "Environment": "cluster-name.example.com",
-  "KubernetesCluster": "cluster-name",
-  "Name": "cluster-name-kube-aws-worker",
-  "aws-autoscaling-groupName": "cluster-name-AutoScaleWorker-SII0CUIA8CD6",
-  "aws-cloudformation-logical-id": "AutoScaleWorker",
-  "aws-cloudformation-stack-id": "arn-aws-cloudformation-us-west-2-051932472482-stack-cluster-name-08",
-  "aws-cloudformation-stack-name": "cluster-name",
-  "beta.kubernetes.io/arch": "amd64",
-  "beta.kubernetes.io/instance-type": "c4.2xlarge",
-  "beta.kubernetes.io/os": "linux",
-  "failure-domain.beta.kubernetes.io/region": "us-west-2",
-  "failure-domain.beta.kubernetes.io/zone": "us-west-2b",
-  "kubernetes.io/hostname": "ip-10-0-0-233.us-west-2.compute.internal"
+  "Name": "ip-***********.ap-southeast-1.compute.internal",
+  "Labels": {
+    "LifeCycle": "OnDemand",
+    "beta.kubernetes.io/arch": "amd64",
+    "beta.kubernetes.io/instance-type": "m4.xlarge",
+    "beta.kubernetes.io/os": "linux",
+    "failure-domain.beta.kubernetes.io/region": "ap-southeast-1",
+    "failure-domain.beta.kubernetes.io/zone": "ap-southeast-1b",
+    "kops.k8s.io/instancegroup": "nodes-mix",
+    "kubernetes.io/arch": "amd64",
+    "kubernetes.io/hostname": "ip-***********.ap-southeast-1.compute.internal",
+    "kubernetes.io/os": "linux",
+    "kubernetes.io/role": "node",
+    "node-role.kubernetes.io/node": ""
+  },
+  "Taints": null
 }
 ```

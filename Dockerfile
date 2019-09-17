@@ -1,9 +1,11 @@
+FROM lachlanevenson/k8s-kubectl:v1.15.3
 
-FROM lachlanevenson/k8s-kubectl:latest
+RUN apk --no-cache add bash py-pip python curl && \
+    pip install --upgrade pip awscli==1.16.239
 
-RUN apk --no-cache add bash py-pip python jq curl && \
-    pip install --upgrade pip awscli
+COPY run.sh /run.sh
+
+# overwrite base image kubectl entrypoint
 ENTRYPOINT ["/run.sh"]
-ADD run.sh /run.sh
 
-CMD /run.sh
+CMD ["/run.sh"]

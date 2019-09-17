@@ -4,26 +4,37 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+LABELS=${LABELS:-LifeCycle=OnDemand}
+TAINTS=${TAINTS:-}
+
+SPOT_LABELS=${SPOT_LABELS:-LifeCycle=Ec2Spot}
+SPOT_TAINTS=${SPOT_TAINTS:-spotInstance=true:PreferNoSchedule}
+
 run () {
   echo "Running labeller..."
   region=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -e "s/.$//")
   localHostname=$(curl -s http://169.254.169.254/latest/meta-data/local-hostname)
+  iid=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 
-  tags="$( \
-    aws ec2 describe-tags \
-    --region $region \
-    --filters "Name=resource-id,Values=$(curl --silent http://169.254.169.254/latest/meta-data/instance-id)" | \
-    jq -c '.Tags[]'
-  )"
+  ilc=`aws ec2 describe-instances --region ${region} --instance-ids ${iid} --query 'Reservations[0].Instances[0].InstanceLifecycle' --output text`
+  
+  if [ "${ilc}" == "spot" ]; then
+    for l in ${SPOT_LABELS}; do
+      kubectl label nodes "${localHostname}" $l
+    done
 
-  for tag in $tags; do
-    # Keys may not contain colons, replace with dashes
-    key="$(echo $tag | jq -r '.Key' | sed s/:/-/g)"
-    # Values may not be more than 63 chars
-    value="$(echo $tag | jq -r '.Value' | cut -c 1-63 | sed s/:/-/g | sed s/\\\//-/g)"
-    patch="$(jq -n ".metadata.labels[\"$key\"] = \"$value\"")"
-    kubectl patch node "$localHostname" -p "$patch"
-  done
+    for t in ${SPOT_TAINTS}; do
+      kubectl taint nodes "${localHostname}" $t
+    done
+  else
+    for l in ${LABELS}; do
+      kubectl label nodes "${localHostname}" $l
+    done
+
+    for t in ${TAINTS}; do
+      kubectl taint nodes "${localHostname}" $t
+    done
+  fi
 }
 
 while true; do
