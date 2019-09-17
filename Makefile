@@ -3,7 +3,7 @@
 include .env
 export $(shell sed 's/=.*//' .env)
 
-VERSION=1.15.3-1
+VERSION=1.15.3-2
 
 .PHONY: all push manifests
 

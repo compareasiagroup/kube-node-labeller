@@ -20,19 +20,19 @@ run () {
   
   if [ "${ilc}" == "spot" ]; then
     for l in ${SPOT_LABELS}; do
-      kubectl label nodes "${localHostname}" $l
+      kubectl label nodes --overwrite "${localHostname}" $l
     done
 
     for t in ${SPOT_TAINTS}; do
-      kubectl taint nodes "${localHostname}" $t
+      kubectl taint --overwrite nodes "${localHostname}" $t
     done
   else
     for l in ${LABELS}; do
-      kubectl label nodes "${localHostname}" $l
+      kubectl label --overwrite nodes "${localHostname}" $l
     done
 
     for t in ${TAINTS}; do
-      kubectl taint nodes "${localHostname}" $t
+      kubectl taint --overwrite nodes "${localHostname}" $t
     done
   fi
 }
